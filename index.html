@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Attendance Portal</title>
+    <style>
+        /* Same styling as before */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: #f0f7ff;
+            padding: 20px;
+        }
+
+        .container {
+            width: 90%;
+            margin: 0 auto;
+        }
+
+        /* Header container */
+        .header {
+          text-align: center;
+          margin-bottom: 40px;
+          position: relative;
+        }
+
+         /* Heading style with smooth animation */
+          .header h1 {
+             color: #4361ee;
+              font-size: 3.5em;
+              font-weight: 600;
+              letter-spacing: 2px;
+              animation: fadeInUp 1.5s ease-out;
+           }
+
+/* Fade-in and slide-up animation */
+@keyframes fadeInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Subtle underline effect */
+.header h1::after {
+    content: '';
+    display: block;
+    width: 50%;
+    height: 2px;
+    margin: 20px auto 0;
+    background: #4361ee;
+    transform: scaleX(0);
+    animation: underlineAnimation 0.8s ease-out forwards;
+}
+
+/* Underline animation */
+@keyframes underlineAnimation {
+    100% {
+        transform: scaleX(1);
+    }
+}
+
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(67, 97, 238, 0.1);
+            margin-bottom: 30px;
+            transition: transform 0.3s ease;
+        }
+
+        .input-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e8ff;
+            border-radius: 15px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            background: #f8faff;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4361ee;
+            box-shadow: 0 0 15px rgba(67, 97, 238, 0.2);
+            transform: scale(1.02);
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-in { background: #4361ee; color: white; }
+        .btn-out { background: #ff6b6b; color: white; }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+        }
+
+        th {
+            color: #4361ee;
+            padding: 15px;
+            text-align: left;
+        }
+
+        td {
+            padding: 15px;
+            background: white;
+        }
+
+        tr {
+            animation: slideIn 0.5s ease-out forwards;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .status-in { color: #4361ee; font-weight: bold; }
+        .status-out { color: #ff6b6b; font-weight: bold; }
+
+        @media (max-width: 768px) {
+            .btn-container { flex-direction: column; }
+            table { display: block; overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Employee Attendance Portal</h1>
+        </div>
+
+        <div class="card">
+            <div class="input-container">
+                <div class="input-group">
+                    <input type="text" id="employeeId" placeholder="Employee ID" required oninput="filterInput(event)" maxlength="7">
+                </div>
+            </div>
+            <div class="btn-container">
+                <button class="btn-in" onclick="punchIn()">Punch In</button>
+                <button class="btn-out" onclick="punchOut()">Punch Out</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Your Recent Records</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>In</th>
+                        <th>Out</th>
+                        <th>Hours</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="recordsTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let timeRecords = JSON.parse(localStorage.getItem('timeRecords')) || [];
+
+        function punchIn() {
+            const employeeId = document.getElementById('employeeId').value;
+
+            if (!employeeId) {
+                alert('Please enter Employee ID');
+                return;
+            }
+
+            const employeeIdPattern = /^ATS0(?!000)\d{3}$/;  // Regex pattern for the Employee ID
+
+            if (!employeeIdPattern.test(employeeId)) {
+                alert('Invalid Employee ID format. It must start with ATS uppercase letters, followed by 0, and end with 3 digits.');
+                return;
+            }
+
+            const existingRecord = timeRecords.find(record => 
+                record.employeeId === employeeId && 
+                record.punchOut === null
+            );
+
+            if (existingRecord) {
+                alert('You are already punched in');
+                return;
+            }
+
+            const record = {
+                employeeId,
+                date: new Date().toLocaleDateString(),
+                punchIn: new Date().toLocaleTimeString(),
+                punchOut: null,
+                totalHours: null
+            };
+
+            timeRecords.push(record);
+            saveRecords();
+            updateTable(employeeId);
+            clearForm();
+        }
+
+        function punchOut() {
+            const employeeId = document.getElementById('employeeId').value;
+
+            if (!employeeId) {
+                alert('Please enter Employee ID');
+                return;
+            }
+
+            const employeeIdPattern = /^ATS0(?!000)\d{3}$/;  // Regex pattern for the Employee ID
+
+            if (!employeeIdPattern.test(employeeId)) {
+                alert('Invalid Employee ID format. It must start with 3 uppercase letters, followed by 0, and end with 3 digits.');
+                return;
+            }
+
+            const record = timeRecords.find(record => 
+                record.employeeId === employeeId && 
+                record.punchOut === null
+            );
+
+            if (!record) {
+                alert('No active punch-in found');
+                return;
+            }
+
+            record.punchOut = new Date().toLocaleTimeString();
+            record.totalHours = calculateHours(record.punchIn, record.punchOut);
+            saveRecords();
+            updateTable(employeeId);
+            clearForm();
+        }
+
+        function calculateHours(punchIn, punchOut) {
+            const startTime = new Date(`2000/01/01 ${punchIn}`);
+            const endTime = new Date(`2000/01/01 ${punchOut}`);
+            const diff = (endTime - startTime) / (1000 * 60 * 60);
+            return diff.toFixed(2);
+        }
+
+        function updateTable(employeeId) {
+            const tbody = document.getElementById('recordsTable');
+            tbody.innerHTML = '';
+
+            const employeeRecords = timeRecords
+                .filter(record => record.employeeId === employeeId)
+                .slice(-5);
+
+            employeeRecords.forEach((record, index) => {
+                const row = tbody.insertRow();
+                row.style.animationDelay = `${index * 0.1}s`;
+                row.innerHTML = ` 
+                    <td>${record.date}</td>
+                    <td>${record.punchIn}</td>
+                    <td>${record.punchOut || '-'}</td>
+                    <td>${record.totalHours || '-'}</td>
+                    <td class="${record.punchOut ? 'status-out' : 'status-in'}">
+                        ${record.punchOut ? 'Out' : 'In'}
+                    </td>
+                `;
+            });
+        }
+
+        function saveRecords() {
+            localStorage.setItem('timeRecords', JSON.stringify(timeRecords));
+        }
+
+        function clearForm() {
+            document.getElementById('employeeId').value = '';
+        }
+
+        function filterInput(event) {
+            let inputValue = event.target.value;
+            inputValue = inputValue.replace(/[^a-zA-Z0-9]/g, '');
+            event.target.value = inputValue;
+        }
+
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+ADMIN SIDE CODE:
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Attendance Portal</title>
+    <style>
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: #f0f7ff;
+            padding: 20px;
+        }
+
+        .container {
+            width: 90%;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .header h1 {
+            color: #4361ee;
+            font-size: 3.5em;
+            font-weight: 600;
+            letter-spacing: 2px;
+            animation: fadeInUp 1.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header h1::after {
+            content: '';
+            display: block;
+            width: 50%;
+            height: 2px;
+            margin: 20px auto 0;
+            background: #4361ee;
+            transform: scaleX(0);
+            animation: underlineAnimation 0.8s ease-out forwards;
+        }
+
+        @keyframes underlineAnimation {
+            100% {
+                transform: scaleX(1);
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(67, 97, 238, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f8faff;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            color: #4361ee;
+            margin: 10px 0;
+        }
+
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input, select {
+            padding: 12px;
+            border: 2px solid #e1e8ff;
+            border-radius: 10px;
+            background: #f8faff;
+            min-width: 200px;
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-admin { 
+            background: #2ec4b6; 
+            color: white; 
+        }
+
+        .btn-delete { 
+            background: #ff6b6b; 
+            color: white; 
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+        }
+
+        th {
+            color: #4361ee;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 15px;
+            background: white;
+        }
+
+        tr {
+            animation: slideIn 0.5s ease-out forwards;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        tr td:first-child {
+            border-radius: 10px 0 0 10px;
+        }
+
+        tr td:last-child {
+            border-radius: 0 10px 10px 0;
+        }
+
+        .status-in { 
+            color: #4361ee; 
+            font-weight: bold; 
+        }
+
+        .status-out { 
+            color: #ff6b6b; 
+            font-weight: bold; 
+        }
+
+        .no-records {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-style: italic;
+            background: #f9f9f9 !important;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid { 
+                grid-template-columns: 1fr; 
+            }
+            .filters { 
+                flex-direction: column; 
+            }
+            .btn-container {
+                flex-direction: column;
+            }
+            table { 
+                display: block; 
+                overflow-x: auto; 
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Admin Attendance Portal</h1>
+        </div>
+
+        <div class="card">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Employees</h3>
+                    <div id="totalEmployees" class="stat-number">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Currently Active</h3>
+                    <div id="activeEmployees" class="stat-number">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Hours Today</h3>
+                    <div id="totalHours" class="stat-number">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Average Hours/Employee</h3>
+                    <div id="avgHours" class="stat-number">0</div>
+                </div>
+            </div>
+
+            <div class="filters">
+                <input type="date" id="dateFilter" onchange="filterRecords()">
+                <input type="text" id="employeeFilter" placeholder="Search by ID" onkeyup="filterRecords()">
+                <select id="statusFilter" onchange="filterRecords()">
+                    <option value="all">All Status</option>
+                    <option value="in">Punched In</option>
+                    <option value="out">Punched Out</option>
+                </select>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn-admin" onclick="exportData()">Export to CSV</button>
+                <button class="btn-delete" onclick="clearRecords()">Clear All Records</button>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Date</th>
+                        <th>Punch In</th>
+                        <th>Punch Out</th>
+                        <th>Hours</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="recordsTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h2>Edit Record</h2>
+            <div style="margin: 20px 0;">
+                <input type="text" id="editEmployeeId" placeholder="Employee ID">
+                <input type="time" id="editPunchIn">
+                <input type="time" id="editPunchOut">
+            </div>
+            <div class="btn-container">
+                <button class="btn-admin" onclick="saveEdit()">Save</button>
+                <button class="btn-delete" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timeRecords = JSON.parse(localStorage.getItem('timeRecords')) || [];
+        let currentEditId = null;
+
+        function updateStats() {
+            const today = new Date().toLocaleDateString();
+            const uniqueEmployees = new Set(timeRecords.map(r => r.employeeId));
+            const activeEmployees = timeRecords.filter(r => !r.punchOut).length;
+            const todayRecords = timeRecords.filter(r => r.date === today);
+            
+            const totalHours = todayRecords.reduce((sum, r) => {
+                return sum + (r.totalHours ? parseFloat(r.totalHours) : 0);
+            }, 0);
+
+            const avgHours = uniqueEmployees.size ? (totalHours / uniqueEmployees.size).toFixed(2) : 0;
+
+            document.getElementById('totalEmployees').textContent = uniqueEmployees.size;
+            document.getElementById('activeEmployees').textContent = activeEmployees;
+            document.getElementById('totalHours').textContent = totalHours.toFixed(2);
+            document.getElementById('avgHours').textContent = avgHours;
+        }
+
+        function filterRecords() {
+            const date = document.getElementById('dateFilter').value;
+            const searchTerm = document.getElementById('employeeFilter').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+
+            let filteredRecords = timeRecords;
+
+            if (date) {
+                const formattedDate = new Date(date).toLocaleDateString();
+                filteredRecords = filteredRecords.filter(r => r.date === formattedDate);
+            }
+
+            if (searchTerm) {
+                filteredRecords = filteredRecords.filter(r => 
+                    r.employeeId.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (status !== 'all') {
+                filteredRecords = filteredRecords.filter(r => 
+                    status === 'in' ? !r.punchOut : r.punchOut
+                );
+            }
+
+            updateTable(filteredRecords);
+        }
+
+        function updateTable(records = timeRecords) {
+            const tbody = document.getElementById('recordsTable');
+            tbody.innerHTML = '';
+
+            if (records.length === 0) {
+                const noRecordsRow = tbody.insertRow();
+                const noRecordsCell = noRecordsRow.insertCell();
+                noRecordsCell.colSpan = 7;
+                noRecordsCell.classList.add('no-records');
+                noRecordsCell.textContent = 'No records found';
+                return;
+            }
+
+            records.forEach((record, index) => {
+                const row = tbody.insertRow();
+                row.style.animationDelay = `${index * 0.1}s`;
+                row.innerHTML = `
+                    <td>${record.employeeId}</td>
+                    <td>${record.date}</td>
+                    <td>${record.punchIn}</td>
+                    <td>${record.punchOut || '-'}</td>
+                    <td>${record.totalHours || '-'}</td>
+                    <td class="${record.punchOut ? 'status-out' : 'status-in'}">
+                        ${record.punchOut ? 'Out' : 'In'}
+                    </td>
+                    <td>
+                        <button class="btn-admin" style="padding: 5px 10px" 
+                            onclick="editRecord('${record.employeeId}', '${record.date}', '${record.punchIn}')">
+                            Edit
+                        </button>
+                    </td>
+                `;
+            });
+        }
+
+        function editRecord(employeeId, date, punchIn) {
+            const record = timeRecords.find(r => 
+                r.employeeId === employeeId && 
+                r.date === date && 
+                r.punchIn === punchIn
+            );
+
+            if (record) {
+                currentEditId = timeRecords.indexOf(record);
+                document.getElementById('editEmployeeId').value = record.employeeId;
+                document.getElementById('editPunchIn').value = convertTo24Hour(record.punchIn);
+                document.getElementById('editPunchOut').value = record.punchOut ? convertTo24Hour(record.punchOut) : '';
+                document.getElementById('editModal').style.display = 'flex';
+            }
+        }
+
+        function convertTo24Hour(time12h) {
+            const [time, modifier] = time12h.split(' ');
+            let [hours, minutes] = time.split(':');
+            if (hours === '12') {
+                hours = '00';
+            }
+            if (modifier === 'PM') {
+                hours = parseInt(hours, 10) + 12;
+            }
+            return `${hours.padStart(2, '0')}:${minutes}`;
+        }
+
+        function saveEdit() {
+            const record = timeRecords[currentEditId];
+            record.employeeId = document.getElementById('editEmployeeId').value;
+            record.punchIn = new Date(`2000/01/01 ${document.getElementById('editPunchIn').value}`).toLocaleTimeString();
+            
+            const punchOut = document.getElementById('editPunchOut').value;
+            if (punchOut) {
+                record.punchOut = new Date(`2000/01/01 ${punchOut}`).toLocaleTimeString();
+                record.totalHours = calculateHours(record.punchIn, record.punchOut);
+            }
+
+            saveRecords();
+            closeModal();
+            updateTable();
+            updateStats();
+        }
+
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+            currentEditId = null;
+        }
+
+        function calculateHours(punchIn, punchOut) {
+            const startTime = new Date(`2000/01/01 ${punchIn}`);
+            const endTime = new Date(`2000/01/01 ${punchOut}`);
+            const diff = (endTime - startTime) / (1000 * 60 * 60);
+            return diff.toFixed(2);
+        }
+
+        function exportData() {
+            if (timeRecords.length === 0) {
+                alert('No records available to export.');
+                return;
+            }
+
+            const headers = ['Employee ID', 'Date', 'Punch In', 'Punch Out', 'Hours', 'Status'];
+            const rows = timeRecords.map(record => [
+                record.employeeId,
+                record.date,
+                record.punchIn,
+                record.punchOut || '',
+                record.totalHours || '',
+                record.punchOut ? 'Out' : 'In'
+            ]);
+
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'time_records.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function clearRecords() {
+            if (confirm('Are you sure you want to clear all records? This cannot be undone.')) {
+                timeRecords = [];
+                saveRecords();
+                updateTable();
+                updateStats();
+            }
+        }
+
+        function saveRecords() {
+            localStorage.setItem('timeRecords', JSON.stringify(timeRecords));
+        }
+
+        // Initialize date filter with today's date
+        document.getElementById('dateFilter').valueAsDate = new Date();
+
+        // Initial load
+        updateTable();
+        updateStats();
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
